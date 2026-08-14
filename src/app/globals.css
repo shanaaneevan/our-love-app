@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-pastel-pink: #FFD1DC;
+  --color-pastel-soft: #FFF0F3;
+  --color-pastel-accent: #FF4D6D;
+  --color-pastel-red: #C9184A;
+  --color-pastel-cream: #FFF8F0;
+  --color-pastel-chocolate: #4A2E2B;
+}
+
+body {
+  background-color: var(--color-pastel-soft);
+  color: var(--color-pastel-chocolate);
+  font-family: Arial, Helvetica, sans-serif;
+}
