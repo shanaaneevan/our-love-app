@@ -1,249 +1,412 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import confetti from "canvas-confetti";
+import React, { useState, useEffect } from "react";
 
-import DatePlanner from "@/components/DatePlanner";
-import ChatRoom, { Message } from "@/components/ChatRoom";
-import PunchDudu from "@/components/PunchDudu";
-import { Heart, Calendar, MessageCircle, Flame } from "lucide-react";
+// --- WEBAUDIO PUNCH SOUND SYNTHESIZER ---
+const playPunchSound = () => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
 
-const GUILT_NOTES = [
-  "Are you sure? 🥺",
-  "Think again... Bubu is getting sad! 💔",
-  "You really gonna do this to me? 😭",
-  "Look at this sad face! Say yes! 🧸",
-  "Okay, now you are breaking my heart... 💔",
-];
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(150, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
 
-const SECRET_PIN = "1234"; // 🔑 Set your custom secret PIN here!
+    gain.gain.setValueAtTime(1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch (e) {
+    console.error("Audio play error", e);
+  }
+};
 
 export default function Home() {
+  // App States
+  const [userRole, setUserRole] = useState<"bubu" | "dudu" | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [passcode, setPasscode] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [pin, setPin] = useState("");
-  const [error, setError] = useState(false);
+  
+  // Navigation: 'auth' | 'proposal' | 'app'
+  const [view, setView] = useState<"auth" | "proposal" | "app">("auth");
+  const [activeTab, setActiveTab] = useState<"planner" | "chat" | "punch">("planner");
 
-  const [noCount, setNoCount] = useState(0);
-  const [isAccepted, setIsAccepted] = useState(false);
+  // App Data
+  const [messages, setMessages] = useState<Array<{ sender: string; text: string; time: string }>>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [plannedDate, setPlannedDate] = useState({ date: "", activity: "", location: "" });
+  const [punchCount, setPunchCount] = useState(0);
 
-  // Active Tab State
-  const [activeTab, setActiveTab] = useState<"proposal" | "planner" | "chat" | "punch">("proposal");
+  // Sync state between browser tabs/partners using BroadcastChannel
+  useEffect(() => {
+    const channel = new BroadcastChannel("bubu_dudu_sync");
+    channel.onmessage = (event) => {
+      if (event.data.type === "NEW_MESSAGE") {
+        setMessages((prev) => [...prev, event.data.payload]);
+      } else if (event.data.type === "DATE_CONFIRMED") {
+        const confirmMsg = {
+          sender: "System 💕",
+          text: `🎉 Date Confirmed! \n📅 Date: ${event.data.payload.date}\n🎈 Activity: ${event.data.payload.activity}\n📍 Location: ${event.data.payload.location}`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages((prev) => [...prev, confirmMsg]);
+      } else if (event.data.type === "PUNCH") {
+        setPunchCount((prev) => prev + 1);
+      }
+    };
+    return () => channel.close();
+  }, []);
 
-  // 💬 Shared Chat State
-  const [chatMessages, setChatMessages] = useState<Message[]>([
-    { id: 1, text: "Hey sweetie! Can't wait for our date! 🧸", sender: "them", time: "10:00 AM" },
-  ]);
-
-  // Handler to add new messages from ChatRoom or DatePlanner
-  const handleNewMessage = (text: string) => {
-    setChatMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        text,
-        sender: "me",
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      },
-    ]);
-  };
-
-  // Auth Handler
-  const handleAuthSubmit = (e: React.FormEvent) => {
+  const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === SECRET_PIN) {
+    if (passcode === "1234" && userRole) {
       setIsAuthenticated(true);
+      setView("proposal");
     } else {
-      setError(true);
-      setPin("");
+      alert("Invalid Passcode or Role selection! (Default PIN: 1234)");
     }
   };
 
-  // Proposal Handlers
-  const handleNoClick = () => {
-    setNoCount((prev) => prev + 1);
+  const handleSendMessage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const newMsg = {
+      sender: userRole === "bubu" ? "Bubu 🐻" : "Dudu 🐼",
+      text: chatInput,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setMessages((prev) => [...prev, newMsg]);
+    setChatInput("");
+
+    // Send to partner
+    const channel = new BroadcastChannel("bubu_dudu_sync");
+    channel.postMessage({ type: "NEW_MESSAGE", payload: newMsg });
   };
 
-  const handleYesClick = () => {
-    confetti({
-      particleCount: 120,
-      spread: 80,
-      origin: { y: 0.6 },
-    });
-    setIsAccepted(true);
+  const handleConfirmDate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!plannedDate.date || !plannedDate.activity) return;
+
+    const confirmMsg = {
+      sender: "System 💕",
+      text: `🎉 Date Proposal Sent!\n📅 Date: ${plannedDate.date}\n🎈 Activity: ${plannedDate.activity}\n📍 Location: ${plannedDate.location}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setMessages((prev) => [...prev, confirmMsg]);
+    
+    // Notify partner in Chat
+    const channel = new BroadcastChannel("bubu_dudu_sync");
+    channel.postMessage({ type: "DATE_CONFIRMED", payload: plannedDate });
+
+    alert("Date proposal sent to your partner's chat! 💌");
+    setActiveTab("chat");
   };
 
-  const bubuScale = 1 + noCount * 0.15;
-  const yesButtonScale = 1 + noCount * 0.2;
-  const currentNote = GUILT_NOTES[Math.min(noCount, GUILT_NOTES.length - 1)];
+  const handlePunch = () => {
+    playPunchSound();
+    setPunchCount((prev) => prev + 1);
 
-  // 1. LOGIN SCREEN
-  if (!isAuthenticated) {
-    return (
-      <main className="flex flex-col items-center justify-center min-h-screen p-4 relative overflow-hidden bg-pastel-soft">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-white p-8 rounded-3xl shadow-xl max-w-sm w-full text-center border-2 border-pastel-pink z-10"
-        >
-          <h1 className="text-2xl font-bold text-pastel-chocolate mb-2">Welcome Back! 🧸</h1>
-          <p className="text-sm text-gray-500 mb-6">Enter our secret passcode to enter</p>
+    const channel = new BroadcastChannel("bubu_dudu_sync");
+    channel.postMessage({ type: "PUNCH" });
+  };
 
-          <form onSubmit={handleAuthSubmit} className="space-y-4">
+  return (
+    <main className="min-h-screen bg-pink-50 relative overflow-hidden flex flex-col items-center justify-center font-sans">
+      
+      {/* FLOATING HEARTS BACKGROUND */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+        {[...Array(15)].map((_, i) => (
+          <div
+            key={i}
+            className="floating-heart text-pink-300 text-2xl"
+            style={{
+              left: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 5}s`,
+              animationDuration: `${4 + Math.random() * 4}s`
+            }}
+          >
+            💖
+          </div>
+        ))}
+      </div>
+
+      {/* VIEW 1: AUTHENTICATION / REGISTRATION */}
+      {view === "auth" && (
+        <div className="z-10 bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-pink-100 text-center">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back! 🧸</h1>
+          <p className="text-gray-500 text-sm mb-6">Enter our secret passcode to enter</p>
+
+          <form onSubmit={handleRegister} className="flex flex-col gap-4">
+            {/* Role Selection */}
+            <div className="flex justify-center gap-4 mb-2">
+              <button
+                type="button"
+                onClick={() => setUserRole("bubu")}
+                className={`flex-1 py-2 rounded-xl border-2 font-semibold transition ${
+                  userRole === "bubu" ? "border-pink-500 bg-pink-100 text-pink-700" : "border-gray-200 text-gray-500"
+                }`}
+              >
+                I am Bubu 🐻
+              </button>
+              <button
+                type="button"
+                onClick={() => setUserRole("dudu")}
+                className={`flex-1 py-2 rounded-xl border-2 font-semibold transition ${
+                  userRole === "dudu" ? "border-pink-500 bg-pink-100 text-pink-700" : "border-gray-200 text-gray-500"
+                }`}
+              >
+                I am Dudu 🐼
+              </button>
+            </div>
+
+            <input
+              type="tel"
+              placeholder="Mobile Number"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className="w-full px-4 py-3 rounded-full border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 text-center"
+              required
+            />
+
             <input
               type="password"
-              maxLength={4}
-              value={pin}
-              onChange={(e) => {
-                setError(false);
-                setPin(e.target.value);
-              }}
               placeholder="****"
-              className="w-full text-center text-2xl tracking-widest py-3 px-4 rounded-full border-2 border-pastel-pink focus:outline-none focus:border-pastel-accent bg-pastel-cream text-pastel-chocolate"
+              maxLength={4}
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value)}
+              className="w-full px-4 py-3 rounded-full border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 text-center text-lg tracking-widest"
+              required
             />
-            {error && <p className="text-xs text-pastel-red">Wrong secret code! Try again 🥺</p>}
+
             <button
               type="submit"
-              className="w-full py-3 bg-pastel-accent text-white font-semibold rounded-full shadow-md hover:bg-pastel-red transition-colors"
+              className="w-full py-3 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-full shadow-lg transition transform active:scale-95"
             >
               Unlock Love 💖
             </button>
           </form>
-        </motion.div>
-      </main>
-    );
-  }
+        </div>
+      )}
 
-  // MAIN APPLICATION LAYOUT (AFTER LOGIN)
-  return (
-    <div className="flex flex-col min-h-screen bg-pastel-soft pb-24">
-      {/* Dynamic Main Content Container */}
-      <main className="flex-1 flex flex-col items-center justify-center p-4">
-        {/* TAB 1: PROPOSAL */}
-        {activeTab === "proposal" && (
-          <div className="flex flex-col items-center justify-center text-center">
-            {isAccepted ? (
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="bg-white p-8 rounded-3xl shadow-xl border-2 border-pastel-pink max-w-md"
-              >
-                <h1 className="text-3xl font-extrabold text-pastel-accent mb-4">YAYYY! 🎉💖</h1>
-                <p className="text-lg text-pastel-chocolate mb-6">
-                  I knew you would say yes! Can't wait for our date! 🧸✨
-                </p>
-                <img src="/happy.jpeg" alt="Happy Bubu" className="w-48 h-48 mx-auto object-contain mb-4" />
-                <button
-                  onClick={() => setActiveTab("planner")}
-                  className="py-2.5 px-6 bg-pastel-accent text-white font-bold rounded-full text-sm shadow-md"
-                >
-                  Go to Planner 🗓️
-                </button>
-              </motion.div>
-            ) : (
-              <>
-                <motion.h1
-                  className="text-3xl md:text-5xl font-extrabold text-pastel-chocolate mb-6"
-                  animate={{ scale: [1, 1.02, 1] }}
-                  transition={{ repeat: Infinity, duration: 2 }}
-                >
-                  Do you wanna go for a date? 🌹
-                </motion.h1>
+      {/* VIEW 2: PROPOSAL FEATURE */}
+      {view === "proposal" && (
+        <div className="z-10 flex flex-col items-center text-center p-6 max-w-lg w-full">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-800 mb-6">
+            Do you wanna go for a date? 🌹
+          </h1>
+          
+          <img
+            src="/75442127dca25264c5682e3fd5b444d7.jpg"
+            alt="Bubu and Dudu Date Proposal"
+            className="max-w-md w-full rounded-2xl object-cover shadow-lg mb-8 h-72"
+            onError={(e) => {
+              // Fallback image if file missing
+              (e.target as HTMLElement).setAttribute("src", "https://i.pinimg.com/736x/75/44/21/75442127dca25264c5682e3fd5b444d7.jpg");
+            }}
+          />
 
-                <div className="h-64 flex items-center justify-center my-4 overflow-hidden">
-                  <motion.img
-                    src={noCount > 0 ? "/sad.jpg" : "/happy.jpeg"}
-                    alt="Bubu Bear"
-                    style={{ transform: `scale(${bubuScale})` }}
-                    className="w-44 h-44 object-contain transition-transform duration-300"
+          <div className="flex gap-4">
+            <button
+              onClick={() => setView("app")}
+              className="px-8 py-3 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-full shadow-lg text-lg transition transform active:scale-95"
+            >
+              YES! 🥰
+            </button>
+            <button
+              onClick={() => alert("No option is disabled! 😜")}
+              className="px-6 py-3 bg-gray-200 text-gray-600 font-semibold rounded-full shadow text-lg hover:bg-gray-300"
+            >
+              No 🥺
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW 3: MAIN APP (TABS) */}
+      {view === "app" && (
+        <div className="z-10 w-full max-w-xl bg-white min-h-[80vh] rounded-3xl shadow-xl border border-pink-100 flex flex-col overflow-hidden m-4">
+          
+          {/* Navigation Bar */}
+          <div className="flex border-b border-pink-100 bg-pink-100/50">
+            <button
+              onClick={() => setActiveTab("planner")}
+              className={`flex-1 py-4 font-bold transition ${activeTab === "planner" ? "bg-white text-rose-500 border-b-2 border-rose-500" : "text-gray-500"}`}
+            >
+              📅 Date Planner
+            </button>
+            <button
+              onClick={() => setActiveTab("chat")}
+              className={`flex-1 py-4 font-bold transition ${activeTab === "chat" ? "bg-white text-rose-500 border-b-2 border-rose-500" : "text-gray-500"}`}
+            >
+              💬 Chat Room
+            </button>
+            <button
+              onClick={() => setActiveTab("punch")}
+              className={`flex-1 py-4 font-bold transition ${activeTab === "punch" ? "bg-white text-rose-500 border-b-2 border-rose-500" : "text-gray-500"}`}
+            >
+              🥊 Punch Room
+            </button>
+          </div>
+
+          {/* TAB 1: DATE PLANNER */}
+          {activeTab === "planner" && (
+            <div className="p-6 flex-1 flex flex-col justify-center">
+              <h2 className="text-2xl font-bold text-gray-800 mb-4 text-center">Plan Our Next Date 💖</h2>
+              <form onSubmit={handleConfirmDate} className="flex flex-col gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Select Date</label>
+                  <input
+                    type="date"
+                    value={plannedDate.date}
+                    onChange={(e) => setPlannedDate({ ...plannedDate, date: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-pink-200 mt-1"
+                    required
                   />
                 </div>
-
-                {noCount > 0 && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-pastel-red font-bold text-lg mb-6 bg-white/80 px-4 py-2 rounded-full border border-pastel-pink shadow-sm"
-                  >
-                    {currentNote}
-                  </motion.p>
-                )}
-
-                <div className="flex flex-wrap items-center justify-center gap-6 mt-4 z-20">
-                  <motion.button
-                    style={{ transform: `scale(${yesButtonScale})` }}
-                    onClick={handleYesClick}
-                    className="bg-pastel-accent hover:bg-pastel-red text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors"
-                  >
-                    YES! 🥰
-                  </motion.button>
-
-                  <button
-                    onClick={handleNoClick}
-                    className="bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-full hover:bg-gray-300 transition-colors"
-                  >
-                    No 😢
-                  </button>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Activity</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Dinner & Movie / Stargazing"
+                    value={plannedDate.activity}
+                    onChange={(e) => setPlannedDate({ ...plannedDate, activity: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-pink-200 mt-1"
+                    required
+                  />
                 </div>
-              </>
-            )}
-          </div>
-        )}
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Location</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Favorite Restaurant"
+                    value={plannedDate.location}
+                    onChange={(e) => setPlannedDate({ ...plannedDate, location: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-pink-200 mt-1"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="mt-4 py-3 bg-rose-500 text-white font-bold rounded-xl shadow-md hover:bg-rose-600 transition"
+                >
+                  Send Date Plan to Partner 💕
+                </button>
+              </form>
+            </div>
+          )}
 
-        {/* TAB 2: PLANNER - Prop added to receive date invitation messages */}
-        {activeTab === "planner" && <DatePlanner onSendDateMessage={handleNewMessage} />}
+          {/* TAB 2: CHAT ROOM */}
+          {activeTab === "chat" && (
+            <div className="flex-1 flex flex-col p-4 bg-gray-50">
+              <div className="flex-1 overflow-y-auto space-y-3 p-2">
+                {messages.length === 0 ? (
+                  <p className="text-center text-gray-400 mt-8">No messages yet. Say hi! 👋</p>
+                ) : (
+                  messages.map((msg, index) => (
+                    <div
+                      key={index}
+                      className={`flex flex-col ${
+                        msg.sender.includes(userRole === "bubu" ? "Bubu" : "Dudu")
+                          ? "items-end"
+                          : "items-start"
+                      }`}
+                    >
+                      <span className="text-xs text-gray-400 mb-1">{msg.sender}</span>
+                      <div
+                        className={`p-3 rounded-2xl max-w-xs whitespace-pre-wrap ${
+                          msg.sender.includes("System")
+                            ? "bg-pink-100 text-pink-800 font-semibold border border-pink-300 w-full text-center"
+                            : msg.sender.includes(userRole === "bubu" ? "Bubu" : "Dudu")
+                            ? "bg-rose-500 text-white rounded-br-none"
+                            : "bg-white text-gray-800 border border-gray-200 rounded-bl-none"
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                      <span className="text-[10px] text-gray-400 mt-1">{msg.time}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+              <form onSubmit={handleSendMessage} className="flex gap-2 mt-2">
+                <input
+                  type="text"
+                  placeholder="Type a sweet message..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  className="flex-1 px-4 py-3 rounded-full border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white"
+                />
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-rose-500 text-white font-bold rounded-full shadow hover:bg-rose-600 transition"
+                >
+                  Send
+                </button>
+              </form>
+            </div>
+          )}
 
-        {/* TAB 3: CHAT - Props added to pass messages and receive user input */}
-        {activeTab === "chat" && (
-          <ChatRoom messages={chatMessages} onSendMessage={handleNewMessage} />
-        )}
+          {/* TAB 3: PUNCH ROOM */}
+          {activeTab === "punch" && (
+            <div className="p-6 flex-1 flex flex-col items-center justify-center text-center">
+              <h2 className="text-xl font-bold text-gray-800 mb-2">
+                {userRole === "dudu" ? "Dudu Punching Room 🐼🥊" : "Bubu Punching Room 🐻🥊"}
+              </h2>
+              <p className="text-gray-500 text-sm mb-4">
+                {userRole === "dudu"
+                  ? "Dudu is angry! Tap to punch Bubu!"
+                  : "Bubu is angry! Tap to punch Dudu!"}
+              </p>
 
-        {/* TAB 4: PUNCH DUDU */}
-        {activeTab === "punch" && <PunchDudu />}
-      </main>
+              <div className="relative my-4 cursor-pointer" onClick={handlePunch}>
+                {userRole === "dudu" ? (
+                  /* Dudu Punching Bubu */
+                  <img
+                    src="/Angry_mood.jpg"
+                    alt="Angry Dudu Punching Bubu"
+                    className="w-48 h-48 rounded-2xl object-cover shadow-lg hover:scale-105 transition active:scale-95"
+                    onError={(e) => {
+                      (e.target as HTMLElement).setAttribute("src", "https://i.pinimg.com/736x/8f/3e/6a/8f3e6a7ef6f7f63116bc3d6d027e8a93.jpg");
+                    }}
+                  />
+                ) : (
+                  /* Bubu Punching Dudu */
+                  <img
+                    src="/punch.png"
+                    alt="Angry Bubu Punching Dudu"
+                    className="w-48 h-48 rounded-2xl object-cover shadow-lg hover:scale-105 transition active:scale-95"
+                    onError={(e) => {
+                      (e.target as HTMLElement).setAttribute("src", "https://i.pinimg.com/736x/5a/2a/39/5a2a39a0391d4e08c48bd1b4dd12c5b3.jpg");
+                    }}
+                  />
+                )}
+              </div>
 
-      {/* BOTTOM NAVIGATION BAR */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-pastel-pink py-3 px-6 flex justify-around items-center shadow-lg z-50">
-        <button
-          onClick={() => setActiveTab("proposal")}
-          className={`flex flex-col items-center gap-1 transition-colors ${
-            activeTab === "proposal" ? "text-pastel-accent font-bold" : "text-gray-400"
-          }`}
-        >
-          <Heart size={22} />
-          <span className="text-xs">Proposal</span>
-        </button>
+              <div className="mt-4 bg-pink-100 text-rose-700 px-6 py-2 rounded-full font-bold">
+                Total Punches: {punchCount} 💥
+              </div>
 
-        <button
-          onClick={() => setActiveTab("planner")}
-          className={`flex flex-col items-center gap-1 transition-colors ${
-            activeTab === "planner" ? "text-pastel-accent font-bold" : "text-gray-400"
-          }`}
-        >
-          <Calendar size={22} />
-          <span className="text-xs">Planner</span>
-        </button>
+              <button
+                onClick={handlePunch}
+                className="mt-6 px-8 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full shadow-lg transition active:scale-90"
+              >
+                PUNCH! 💥
+              </button>
+            </div>
+          )}
 
-        <button
-          onClick={() => setActiveTab("chat")}
-          className={`flex flex-col items-center gap-1 transition-colors ${
-            activeTab === "chat" ? "text-pastel-accent font-bold" : "text-gray-400"
-          }`}
-        >
-          <MessageCircle size={22} />
-          <span className="text-xs">Chat</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("punch")}
-          className={`flex flex-col items-center gap-1 transition-colors ${
-            activeTab === "punch" ? "text-pastel-accent font-bold" : "text-gray-400"
-          }`}
-        >
-          <Flame size={22} />
-          <span className="text-xs">Punch Dudu</span>
-        </button>
-      </nav>
-    </div>
+        </div>
+      )}
+    </main>
   );
 }
