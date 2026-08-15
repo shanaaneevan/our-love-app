@@ -7,7 +7,7 @@ interface AuthProps {
 }
 
 export default function AuthScreen({ onLoginSuccess }: AuthProps) {
-  // Navigation states: 'login' | 'register' | 'forgot'
+  // Screen views: 'login' | 'register'
   const [view, setView] = useState<"login" | "register">("login");
 
   // Registration form inputs
@@ -25,7 +25,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
   const [enableDeviceLock, setEnableDeviceLock] = useState(false);
   const [storedDevicePasscode, setStoredDevicePasscode] = useState<string | null>(null);
 
-  // Status banners / popups
+  // Status popups
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
+    setTimeout(() => setToastMessage(null), 4500);
   };
 
   // Handle Registration
@@ -49,11 +49,11 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
       return;
     }
 
-    // Generate a 4-digit PIN shared between both users
+    // Generate a 4-digit shared PIN
     const generatedPin = Math.floor(1000 + Math.random() * 9000).toString();
     const partnerRole = selectedRole === "dudu" ? "bubu" : "dudu";
 
-    // Save couple session details locally (or to your backend database/Twilio API)
+    // Store couple data locally (can be connected to backend SMS API like Twilio)
     const coupleData = {
       userMobile,
       partnerMobile,
@@ -64,29 +64,30 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
     };
     localStorage.setItem("couple_session", JSON.stringify(coupleData));
 
-    // Optional: Device-specific local passcode setup
+    // Save device-specific local passcode if enabled
     if (enableDeviceLock && localPasscode) {
       localStorage.setItem("device_local_passcode", localPasscode);
+      setStoredDevicePasscode(localPasscode);
     }
 
-    // Simulate SMS notification
-    showToast(`Registration Successful! 4-digit PIN (${generatedPin}) sent to ${userMobile} and ${partnerMobile}.`);
+    // Show registration success banner
+    showToast(`Registration Successful! The 4-digit PIN (${generatedPin}) has been sent to ${userMobile} and ${partnerMobile}.`);
 
-    // Redirect to Welcome Page after 2 seconds
+    // Redirect to Welcome / Login page after brief delay
     setTimeout(() => {
       setLoginIdentifier(userMobile);
       setView("login");
-    }, 2000);
+    }, 2500);
   };
 
   // Handle Login
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check device-specific lock if set on this device
+    // Validate device-specific lock if set on this browser
     const deviceLock = localStorage.getItem("device_local_passcode");
     if (deviceLock && localPasscode !== deviceLock) {
-      alert("Invalid Device Local Passcode! Please check your private device PIN.");
+      alert("Invalid Device Local Passcode! Please enter your private device PIN.");
       return;
     }
 
@@ -96,7 +97,6 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
 
       // Validate PIN against stored shared PIN or fallback "1234"
       if (loginPin === data.sharedPin || loginPin === "1234") {
-        // Determine role based on which number logged in
         const isMainUser = loginIdentifier === data.userMobile;
         const activeRole = isMainUser ? data.userRole : data.partnerRole;
         
@@ -105,13 +105,13 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
         return;
       }
     } else if (loginPin === "1234") {
-      // Default fallback for initial testing
+      // Default fallback PIN for initial testing
       localStorage.setItem("user_role", selectedRole);
       onLoginSuccess(selectedRole);
       return;
     }
 
-    alert("Incorrect credentials or PIN! Try 1234 or your SMS PIN.");
+    alert("Incorrect credentials or Love PIN! Try 1234 or your SMS PIN.");
   };
 
   // Handle Forgot PIN
@@ -119,7 +119,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
     const savedCouple = localStorage.getItem("couple_session");
     if (savedCouple) {
       const data = JSON.parse(savedCouple);
-      showToast(`A new PIN (${data.sharedPin}) has been re-sent to ${data.userMobile} and ${data.partnerMobile}.`);
+      showToast(`A new PIN (${data.sharedPin}) has been sent to your registered mobile number (${data.userMobile})!`);
     } else {
       showToast("A new PIN (1234) has been sent to your registered mobile number.");
     }
@@ -129,21 +129,21 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
     <div className="relative min-h-screen bg-pink-100 flex items-center justify-center p-4">
       <FloatingHearts />
 
-      {/* Toast Alert Popup */}
+      {/* Toast Notification Popup */}
       {toastMessage && (
-        <div className="fixed top-6 z-50 bg-rose-500 text-white px-6 py-3 rounded-full shadow-2xl font-medium text-sm text-center max-w-xs transition animate-bounce">
+        <div className="fixed top-6 z-50 bg-rose-500 text-white px-6 py-3 rounded-full shadow-2xl font-medium text-xs sm:text-sm text-center max-w-sm transition animate-bounce">
           {toastMessage}
         </div>
       )}
 
-      {/* Main Container Card */}
+      {/* Main Form Card */}
       <div className="relative z-10 bg-white/90 backdrop-blur-md rounded-3xl p-6 sm:p-8 shadow-2xl max-w-md w-full border border-pink-200">
         
         {/* ==================== VIEW 1: WELCOME / LOGIN SCREEN ==================== */}
         {view === "login" && (
           <div className="text-center">
-            {/* Heart & Key Header Icon */}
-            <div className="flex justify-center mb-2">
+            {/* Heart & Key Lock Graphic */}
+            <div className="flex justify-center mb-3">
               <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center shadow-inner">
                 <span className="text-4xl">🔑💖</span>
               </div>
@@ -173,7 +173,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
                   <input
                     type="password"
                     maxLength={6}
-                    placeholder="Enter 4-digit Love PIN"
+                    placeholder="Enter your password / Love PIN"
                     value={loginPin}
                     onChange={(e) => setLoginPin(e.target.value)}
                     className="w-full pl-11 pr-4 py-3 bg-rose-50/50 border border-pink-200 rounded-full text-sm outline-none focus:ring-2 focus:ring-rose-400"
@@ -182,14 +182,14 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
                 </div>
               </div>
 
-              {/* Device Specific Local Passcode Input if active */}
+              {/* Device Specific Local Passcode Input if configured */}
               {storedDevicePasscode && (
                 <div>
                   <div className="relative flex items-center">
                     <span className="absolute left-4 text-gray-400">📱</span>
                     <input
                       type="password"
-                      placeholder="Device Local Passcode (Privacy)"
+                      placeholder="Enter Device Local Passcode (Privacy Lock)"
                       value={localPasscode}
                       onChange={(e) => setLocalPasscode(e.target.value)}
                       className="w-full pl-11 pr-4 py-3 bg-pink-50 border border-pink-300 rounded-full text-sm outline-none focus:ring-2 focus:ring-rose-400"
@@ -227,7 +227,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
               </button>
             </div>
 
-            {/* Bottom Bear Illustration Footer */}
+            {/* Bottom Bear Characters */}
             <div className="mt-4 flex justify-center gap-2 text-2xl">
               🐼🐻
             </div>
@@ -237,7 +237,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
         {/* ==================== VIEW 2: REGISTRATION SCREEN ==================== */}
         {view === "register" && (
           <div className="text-center">
-            {/* Header Mascot Illustration */}
+            {/* Mascot Header */}
             <div className="flex justify-center mb-2">
               <span className="text-5xl">🐼🐻</span>
             </div>
@@ -254,7 +254,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
                   Registration Details
                 </h3>
 
-                {/* Name */}
+                {/* User Name */}
                 <div>
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">Enter your name</label>
                   <div className="relative flex items-center">
@@ -277,7 +277,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
                     <span className="absolute left-3 text-gray-400 text-sm">📞</span>
                     <input
                       type="tel"
-                      placeholder="Your Mobile Number"
+                      placeholder="Mobile Number"
                       value={userMobile}
                       onChange={(e) => setUserMobile(e.target.value)}
                       className="w-full pl-9 pr-3 py-2 bg-white border border-pink-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-rose-400"
@@ -302,7 +302,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
                   </div>
                 </div>
 
-                {/* Role Selection */}
+                {/* Role Choice */}
                 <div>
                   <label className="text-xs font-semibold text-gray-600 text-center block mb-2">
                     Would you like to be Dudu or Bubu?
@@ -350,7 +350,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthProps) {
                   </div>
                 </div>
 
-                {/* Optional Privacy Device Lock Toggle */}
+                {/* Device Passcode Option */}
                 <div className="pt-2 border-t border-pink-200">
                   <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-700 font-medium">
                     <input

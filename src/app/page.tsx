@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import AuthScreen from "@/components/AuthScreen";
 
 // --- WEBAUDIO PUNCH SOUND SYNTHESIZER ---
 const playPunchSound = () => {
@@ -31,8 +32,6 @@ const playPunchSound = () => {
 export default function Home() {
   // App States
   const [userRole, setUserRole] = useState<"bubu" | "dudu" | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [passcode, setPasscode] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   // Navigation: 'auth' | 'proposal' | 'app'
@@ -54,7 +53,7 @@ export default function Home() {
       } else if (event.data.type === "DATE_CONFIRMED") {
         const confirmMsg = {
           sender: "System 💕",
-          text: `🎉 Date Confirmed! \n📅 Date: ${event.data.payload.date}\n🎈 Activity: ${event.data.payload.activity}\n📍 Location: ${event.data.payload.location}`,
+          text: `🎉 Date Confirmed!\n📅 Date: ${event.data.payload.date}\n🎈 Activity: ${event.data.payload.activity}\n📍 Location: ${event.data.payload.location}`,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         setMessages((prev) => [...prev, confirmMsg]);
@@ -65,14 +64,11 @@ export default function Home() {
     return () => channel.close();
   }, []);
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passcode === "1234" && userRole) {
-      setIsAuthenticated(true);
-      setView("proposal");
-    } else {
-      alert("Invalid Passcode or Role selection! (Default PIN: 1234)");
-    }
+  // Callback once user unlocks via AuthScreen
+  const handleAuthSuccess = (role: "dudu" | "bubu") => {
+    setUserRole(role);
+    setIsAuthenticated(true);
+    setView("proposal");
   };
 
   const handleSendMessage = (e?: React.FormEvent) => {
@@ -124,79 +120,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-pink-50 relative overflow-hidden flex flex-col items-center justify-center font-sans">
       
-      {/* FLOATING HEARTS BACKGROUND */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        {[...Array(15)].map((_, i) => (
-          <div
-            key={i}
-            className="floating-heart text-pink-300 text-2xl"
-            style={{
-              left: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 5}s`,
-              animationDuration: `${4 + Math.random() * 4}s`
-            }}
-          >
-            💖
-          </div>
-        ))}
-      </div>
-
       {/* VIEW 1: AUTHENTICATION / REGISTRATION */}
       {view === "auth" && (
-        <div className="z-10 bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-pink-100 text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back! 🧸</h1>
-          <p className="text-gray-500 text-sm mb-6">Enter our secret passcode to enter</p>
-
-          <form onSubmit={handleRegister} className="flex flex-col gap-4">
-            {/* Role Selection */}
-            <div className="flex justify-center gap-4 mb-2">
-              <button
-                type="button"
-                onClick={() => setUserRole("bubu")}
-                className={`flex-1 py-2 rounded-xl border-2 font-semibold transition ${
-                  userRole === "bubu" ? "border-pink-500 bg-pink-100 text-pink-700" : "border-gray-200 text-gray-500"
-                }`}
-              >
-                I am Bubu 🐻
-              </button>
-              <button
-                type="button"
-                onClick={() => setUserRole("dudu")}
-                className={`flex-1 py-2 rounded-xl border-2 font-semibold transition ${
-                  userRole === "dudu" ? "border-pink-500 bg-pink-100 text-pink-700" : "border-gray-200 text-gray-500"
-                }`}
-              >
-                I am Dudu 🐼
-              </button>
-            </div>
-
-            <input
-              type="tel"
-              placeholder="Mobile Number"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              className="w-full px-4 py-3 rounded-full border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 text-center"
-              required
-            />
-
-            <input
-              type="password"
-              placeholder="****"
-              maxLength={4}
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              className="w-full px-4 py-3 rounded-full border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 text-center text-lg tracking-widest"
-              required
-            />
-
-            <button
-              type="submit"
-              className="w-full py-3 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-full shadow-lg transition transform active:scale-95"
-            >
-              Unlock Love 💖
-            </button>
-          </form>
-        </div>
+        <AuthScreen onLoginSuccess={handleAuthSuccess} />
       )}
 
       {/* VIEW 2: PROPOSAL FEATURE */}
@@ -211,7 +137,6 @@ export default function Home() {
             alt="Bubu and Dudu Date Proposal"
             className="max-w-md w-full rounded-2xl object-cover shadow-lg mb-8 h-72"
             onError={(e) => {
-              // Fallback image if file missing
               (e.target as HTMLElement).setAttribute("src", "https://i.pinimg.com/736x/75/44/21/75442127dca25264c5682e3fd5b444d7.jpg");
             }}
           />
@@ -270,7 +195,7 @@ export default function Home() {
                     type="date"
                     value={plannedDate.date}
                     onChange={(e) => setPlannedDate({ ...plannedDate, date: e.target.value })}
-                    className="w-full p-3 rounded-xl border border-pink-200 mt-1"
+                    className="w-full p-3 rounded-xl border border-pink-200 mt-1 text-gray-700"
                     required
                   />
                 </div>
@@ -281,7 +206,7 @@ export default function Home() {
                     placeholder="e.g. Dinner & Movie / Stargazing"
                     value={plannedDate.activity}
                     onChange={(e) => setPlannedDate({ ...plannedDate, activity: e.target.value })}
-                    className="w-full p-3 rounded-xl border border-pink-200 mt-1"
+                    className="w-full p-3 rounded-xl border border-pink-200 mt-1 text-gray-700"
                     required
                   />
                 </div>
@@ -292,7 +217,7 @@ export default function Home() {
                     placeholder="e.g. Favorite Restaurant"
                     value={plannedDate.location}
                     onChange={(e) => setPlannedDate({ ...plannedDate, location: e.target.value })}
-                    className="w-full p-3 rounded-xl border border-pink-200 mt-1"
+                    className="w-full p-3 rounded-xl border border-pink-200 mt-1 text-gray-700"
                   />
                 </div>
                 <button
@@ -344,7 +269,7 @@ export default function Home() {
                   placeholder="Type a sweet message..."
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  className="flex-1 px-4 py-3 rounded-full border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white"
+                  className="flex-1 px-4 py-3 rounded-full border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white text-gray-700"
                 />
                 <button
                   type="submit"
@@ -370,7 +295,6 @@ export default function Home() {
 
               <div className="relative my-4 cursor-pointer" onClick={handlePunch}>
                 {userRole === "dudu" ? (
-                  /* Dudu Punching Bubu */
                   <img
                     src="/Angry_mood.jpg"
                     alt="Angry Dudu Punching Bubu"
@@ -380,7 +304,6 @@ export default function Home() {
                     }}
                   />
                 ) : (
-                  /* Bubu Punching Dudu */
                   <img
                     src="/punch.png"
                     alt="Angry Bubu Punching Dudu"
