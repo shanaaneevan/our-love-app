@@ -22,7 +22,7 @@ const AuthScreen = dynamic(() => import("@/components/AuthScreen"), {
 const playPunchSound = () => {
   try {
     const audio = new Audio("/punch-sound.mp3");
-    audio.currentTime = 0; // Rewind to start for rapid successive punches
+    audio.currentTime = 0;
     audio.play().catch((err) => {
       console.error("Audio playback error:", err);
     });
@@ -54,8 +54,8 @@ export default function Home() {
   // Proposal State
   const [noCount, setNoCount] = useState(0);
 
-  // Navigation: 'auth' | 'proposal' | 'app'
-  const [view, setView] = useState<"auth" | "proposal" | "app">("auth");
+  // Navigation: 'auth' | 'proposal' | 'success' | 'app'
+  const [view, setView] = useState<"auth" | "proposal" | "success" | "app">("auth");
   const [activeTab, setActiveTab] = useState<"planner" | "chat" | "punch">("planner");
 
   // Confirmation Modal State
@@ -182,19 +182,10 @@ export default function Home() {
 
   return (
     <main 
-      className={`min-h-screen relative overflow-x-hidden flex flex-col items-center font-sans ${
-        view === "app" ? "justify-start pt-8 pb-16" : "justify-center bg-pink-50"
-      }`}
-      style={
-        view === "app"
-          ? {
-              backgroundImage: "url('/dudu_bubu_sitting_backgrnd.png')",
-              backgroundSize: "cover",
-              backgroundPosition: "center bottom",
-              backgroundRepeat: "no-repeat",
-            }
-          : {}
-      }
+      className={`min-h-screen relative overflow-x-hidden flex flex-col items-center justify-center font-sans p-4 bg-cover bg-center`}
+      style={{
+        backgroundImage: "url('/dudu_bubu_sitting_backgrnd.png')",
+      }}
     >
       
       {/* VIEW 1: AUTHENTICATION / REGISTRATION */}
@@ -204,53 +195,155 @@ export default function Home() {
 
       {/* VIEW 2: PROPOSAL FEATURE */}
       {view === "proposal" && (
-        <div className="min-h-screen w-full bg-gradient-to-b from-pink-300 via-pink-200 to-rose-300 flex flex-col items-center justify-center p-6 relative overflow-hidden">
-          <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[350px] h-[350px] bg-white/30 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[400px] h-[250px] bg-rose-400/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="z-10 flex flex-col items-center text-center max-w-md w-full bg-white/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-2xl border border-white/80">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-slate-800 mb-6 drop-shadow-sm flex items-center justify-center gap-2">
+            Do you wanna go for a date? <span className="text-3xl">🌹</span>
+          </h1>
+          
+          <div className="relative w-full rounded-2xl overflow-hidden shadow-md mb-6 bg-white/50 p-2 border border-pink-100">
+            <img
+              key={currentProposalImage}
+              src={currentProposalImage}
+              alt="Proposal"
+              className="w-full h-72 object-cover rounded-xl transition-all duration-300"
+            />
+          </div>
 
-          <div className="z-10 flex flex-col items-center text-center max-w-md w-full bg-white/40 backdrop-blur-md p-8 rounded-3xl shadow-2xl border border-white/50">
-            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-800 mb-6 drop-shadow-sm flex items-center justify-center gap-2">
-              Do you wanna go for a date? <span className="text-3xl">🌹</span>
-            </h1>
-            
-            <div className="relative w-full rounded-2xl overflow-hidden shadow-md mb-6 bg-white/50 p-2 border border-pink-100">
-              <img
-                key={currentProposalImage}
-                src={currentProposalImage}
-                alt="Proposal"
-                className="w-full h-72 object-cover rounded-xl transition-all duration-300"
-              />
+          {noCount > 0 && (
+            <div className="mb-6 px-6 py-2 bg-white/90 rounded-full shadow-md border border-rose-200 text-rose-600 font-bold text-sm animate-bounce">
+              {getSadNote()}
             </div>
+          )}
 
-            {noCount > 0 && (
-              <div className="mb-6 px-6 py-2 bg-white/90 rounded-full shadow-md border border-rose-200 text-rose-600 font-bold text-sm animate-bounce">
-                {getSadNote()}
-              </div>
-            )}
+          <div className="flex gap-4 items-center justify-center w-full mt-2">
+            <button
+              onClick={() => setView("success")}
+              style={{ transform: `scale(${yesButtonScale})` }}
+              className="px-8 py-3 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-extrabold rounded-full shadow-lg text-lg transition-transform duration-200 active:scale-95 z-20"
+            >
+              YES! 🥰
+            </button>
+            <button
+              onClick={handleNoClick}
+              className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold rounded-full shadow text-lg transition"
+            >
+              No 🥺
+            </button>
+          </div>
+        </div>
+      )}
 
-            <div className="flex gap-4 items-center justify-center w-full mt-2">
-              <button
-                onClick={() => setView("app")}
-                style={{ transform: `scale(${yesButtonScale})` }}
-                className="px-8 py-3 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-extrabold rounded-full shadow-lg text-lg transition-transform duration-200 active:scale-95 z-20"
-              >
-                YES! 🥰
-              </button>
-              <button
-                onClick={handleNoClick}
-                className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold rounded-full shadow text-lg transition"
-              >
-                No 🥺
-              </button>
-            </div>
+      {/* VIEW 2.5: SUCCESS CELEBRATION CARD MATCHING DESIGN */}
+      {view === "success" && (
+        <div className="z-10 w-full max-w-lg bg-white/90 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-white/90 overflow-hidden flex flex-col items-center pt-8 pb-0 animate-in fade-in zoom-in duration-300">
+          
+          {/* Title Header */}
+          <div className="flex items-center justify-center gap-2 text-rose-500 mb-2">
+            <h1 className="text-5xl font-black tracking-wide drop-shadow-sm">YAYYY!</h1>
+            <span className="text-3xl">🎉</span>
+            <span className="text-3xl">💖</span>
+          </div>
+
+          {/* Dotted Heart Divider */}
+          <div className="flex items-center justify-center gap-2 text-rose-300 w-full px-12 my-2">
+            <span className="border-b border-dashed border-rose-300 flex-1"></span>
+            <span className="text-xs">💖</span>
+            <span className="border-b border-dashed border-rose-300 flex-1"></span>
+          </div>
+
+          {/* Celebration Text */}
+          <div className="text-center my-3 space-y-1">
+            <p className="text-slate-700 font-bold text-lg">
+              I knew you would say <span className="text-rose-500 font-extrabold">yes!</span>
+            </p>
+            <p className="text-slate-600 font-semibold text-base flex items-center justify-center gap-1.5">
+              Can't wait for our date! <span className="text-lg">🧸</span> <span className="text-amber-400 text-sm">✨</span>
+            </p>
+          </div>
+
+          {/* Hugging Illustration */}
+          <div className="relative w-64 h-56 my-2 flex items-center justify-center">
+            <img
+              src="/75442127dca25264c5682e3fd5b444d7.jpg"
+              alt="Bubu and Dudu Hugging"
+              className="w-full h-full object-contain filter drop-shadow-md"
+            />
+          </div>
+
+          {/* Go to Planner Pill Button */}
+          <div className="w-full px-8 mb-8 mt-2">
+            <button
+              onClick={() => {
+                setActiveTab("planner");
+                setView("app");
+              }}
+              className="w-full py-3.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-extrabold rounded-full shadow-lg ring-4 ring-rose-200/50 transition active:scale-95 text-base flex items-center justify-center gap-2"
+            >
+              <span>Go to Planner</span>
+              <span className="text-lg">📅</span>
+            </button>
+          </div>
+
+          {/* Embedded Bottom Navigation Bar */}
+          <div className="w-full bg-white/80 border-t border-pink-100 py-3 px-4 flex justify-around items-center text-xs font-semibold text-slate-400">
+            <button
+              onClick={() => setView("proposal")}
+              className="flex flex-col items-center gap-1 text-rose-500 font-bold relative"
+            >
+              <span className="text-xl">💖</span>
+              <span>Proposal</span>
+              <div className="absolute -bottom-3 left-0 right-0 h-1 bg-rose-500 rounded-full" />
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("planner");
+                setView("app");
+              }}
+              className="flex flex-col items-center gap-1 hover:text-slate-600 transition"
+            >
+              <span className="text-xl">📅</span>
+              <span>Planner</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("chat");
+                setView("app");
+              }}
+              className="flex flex-col items-center gap-1 hover:text-slate-600 transition"
+            >
+              <span className="text-xl">💬</span>
+              <span>Chat</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("punch");
+                setView("app");
+              }}
+              className="flex flex-col items-center gap-1 hover:text-slate-600 transition"
+            >
+              <span className="text-xl">🥊</span>
+              <span>Punch {userRole === "bubu" ? "Dudu" : "Bubu"}</span>
+            </button>
           </div>
         </div>
       )}
 
       {/* VIEW 3: MAIN APP (TABS) */}
       {view === "app" && (
-        <div className="z-10 w-full max-w-[540px] bg-white/90 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-white/80 flex flex-col overflow-hidden mx-4 my-auto relative">
+        <div className="z-10 w-full max-w-[540px] bg-white/90 backdrop-blur-md rounded-[2.5rem] shadow-2xl border border-white/80 flex flex-col overflow-hidden my-auto relative">
           
+          {/* TOP BAR: BACK TO PROPOSAL YES CONFIRM PAGE */}
+          <div className="w-full bg-pink-50/70 border-b border-pink-100 px-6 py-2.5 flex items-center justify-between">
+            <button
+              onClick={() => setView("success")}
+              className="flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-pink-100/70 px-3 py-1.5 rounded-full transition"
+            >
+              <span>←</span>
+              <span>Back to Proposal Confirm Page</span>
+              <span className="text-sm">💖</span>
+            </button>
+          </div>
+
           {/* DATE PLAN CONFIRMATION MODAL */}
           {showConfirmation && (
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6">
